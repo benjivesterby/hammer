@@ -49,29 +49,20 @@ func main() {
 	for i := 0; i < *p; i++ {
 
 		go func() {
-			client := http.Client{}
 			for {
 				select {
 				case <-ctx.Done():
 					return
 				default:
-					req, err := http.NewRequest(*method, *path, nil)
-					if err != nil {
-						os.Exit(1)
-					}
-
-					start := time.Now()
-					resp, err := client.Do(req)
-					if err != nil {
-						_ = resp.Body.Close()
+					delta, ok := request(*method, *path)
+					if !ok {
 						time.Sleep(*delay)
 						continue
 					}
 
 					mu.Lock()
-					total += time.Since(start)
+					total += delta
 					count++
-					_ = resp.Body.Close()
 					mu.Unlock()
 
 					time.Sleep(*delay)
@@ -99,6 +90,29 @@ func main() {
 			time.Sleep(time.Second * 5)
 		}
 	}
+}
+
+func request(method, path string) (time.Duration, bool) {
+	client := &http.Client{}
+	req, err := http.NewRequest(method, path, nil)
+	if err != nil {
+		return 0, false
+	}
+
+	start := time.Now()
+	resp, err := client.Do(req)
+
+	defer func() {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+	}()
+
+	if err != nil {
+		return 0, false
+	}
+
+	return time.Since(start), true
 }
 
 func initContext() context.Context {
