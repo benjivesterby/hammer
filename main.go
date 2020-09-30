@@ -19,6 +19,12 @@ func main() {
 		"api request path",
 	)
 
+	method := flag.String(
+		"method",
+		"GET",
+		"http.MethodGet flag",
+	)
+
 	p := flag.Int(
 		"p",
 		50,
@@ -31,12 +37,9 @@ func main() {
 		"delay duration between requests on individual routine",
 	)
 
-	ctx := initContext()
+	flag.Parse()
 
-	req, err := http.NewRequest(http.MethodGet, *path, nil)
-	if err != nil {
-		os.Exit(1)
-	}
+	ctx := initContext()
 
 	var total time.Duration
 	count := 0
@@ -46,20 +49,30 @@ func main() {
 	for i := 0; i < *p; i++ {
 
 		go func() {
+			client := http.Client{}
 			for {
 				select {
 				case <-ctx.Done():
 					return
 				default:
-					start := time.Now()
-					_, err := http.DefaultClient.Do(req)
+					req, err := http.NewRequest(*method, *path, nil)
 					if err != nil {
-						return
+						os.Exit(1)
+					}
+					req.Close = true
+
+					start := time.Now()
+					resp, err := client.Do(req)
+					if err != nil {
+						_ = resp.Body.Close()
+						time.Sleep(*delay)
+						continue
 					}
 
 					mu.Lock()
 					total += time.Since(start)
 					count++
+					_ = resp.Body.Close()
 					mu.Unlock()
 
 					time.Sleep(*delay)
@@ -75,10 +88,13 @@ func main() {
 			return
 		default:
 			mu.Lock()
+			total := total
+			count := count
+			mu.Unlock()
+
 			if count > 0 {
 				avg = int(total) / count
 			}
-			mu.Unlock()
 
 			fmt.Printf("total transactions: %v - average transaction time: %v\n", count, time.Duration(avg))
 			time.Sleep(time.Second * 5)
