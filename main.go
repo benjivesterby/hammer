@@ -59,7 +59,6 @@ func main() {
 					if err != nil {
 						os.Exit(1)
 					}
-					req.Close = true
 
 					start := time.Now()
 					resp, err := client.Do(req)
