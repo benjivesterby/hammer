@@ -37,9 +37,20 @@ func main() {
 		"delay duration between requests on individual routine",
 	)
 
+	file := flag.String(
+		"f",
+		"",
+		"output file name, with format as extension [csv,json]",
+	)
+
 	flag.Parse()
 
 	ctx := initContext()
+
+	var out chan stat
+	if file != nil {
+		out = make(chan stat)
+	}
 
 	var total time.Duration
 	count := 0
@@ -48,26 +59,59 @@ func main() {
 	// Create pool
 	for i := 0; i < *p; i++ {
 
-		go func() {
+		go func(worker int, output bool) {
 			for {
 				select {
 				case <-ctx.Done():
 					return
-				default:
+				case <-time.Tick(*delay):
 					delta, ok := request(*method, *path)
 					if !ok {
 						time.Sleep(*delay)
 						continue
 					}
 
+					var req int
 					mu.Lock()
 					total += delta
 					count++
+					req = count
 					mu.Unlock()
 
-					time.Sleep(*delay)
+					if file != nil {
+						select {
+						case <-ctx.Done():
+							return
+						case out <- stat{
+							Request: req,
+							Worker:  worker,
+							Success: ok,
+							Elapsed: delta,
+						}:
+						}
+					}
 				}
 			}
+		}(i, file != nil)
+	}
+
+	var f *os.File
+	if file != nil {
+		_, err := os.Stat(*file)
+		if err != nil {
+			_, err = os.Create(*file)
+			if err != nil {
+				fmt.Printf("error writing to file: %s\n", err.Error())
+			}
+		}
+
+		f, err = os.OpenFile(*file, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+		if err != nil {
+			fmt.Printf("error writing to file: %s\n", err.Error())
+		}
+
+		defer func() {
+			_ = f.Close()
 		}()
 	}
 
@@ -76,7 +120,18 @@ func main() {
 		select {
 		case <-ctx.Done():
 			return
-		default:
+		case data, ok := <-out:
+			if !ok {
+				return
+			}
+
+			line := fmt.Sprintln(data.String())
+			_, err := f.WriteString(line)
+			if err != nil {
+				fmt.Printf("error writing to file: %s\n", err.Error())
+			}
+
+		case <-time.Tick(time.Second * 5):
 			mu.Lock()
 			total := total
 			count := count
@@ -87,7 +142,6 @@ func main() {
 			}
 
 			fmt.Printf("total transactions: %v - average transaction time: %v\n", count, time.Duration(avg))
-			time.Sleep(time.Second * 5)
 		}
 	}
 }
@@ -96,7 +150,7 @@ func request(method, path string) (time.Duration, bool) {
 	client := &http.Client{}
 	req, err := http.NewRequest(method, path, nil)
 	if err != nil {
-		return 0, false
+		return time.Duration(0), false
 	}
 
 	start := time.Now()
@@ -109,7 +163,7 @@ func request(method, path string) (time.Duration, bool) {
 	}()
 
 	if err != nil {
-		return 0, false
+		return time.Duration(0), false
 	}
 
 	return time.Since(start), true
