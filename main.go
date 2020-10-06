@@ -115,22 +115,32 @@ func main() {
 		}()
 	}
 
+	go func(out <-chan stat) {
+		for {
+
+			select {
+			case <-ctx.Done():
+				return
+			case data, ok := <-out:
+				if !ok {
+					return
+				}
+
+				line := fmt.Sprintln(data.String())
+				_, err := f.WriteString(line)
+				if err != nil {
+					fmt.Printf("error writing to file: %s\n", err.Error())
+				}
+			}
+		}
+
+	}(out)
+
 	var avg int
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case data, ok := <-out:
-			if !ok {
-				return
-			}
-
-			line := fmt.Sprintln(data.String())
-			_, err := f.WriteString(line)
-			if err != nil {
-				fmt.Printf("error writing to file: %s\n", err.Error())
-			}
-
 		case <-time.Tick(time.Second * 5):
 			mu.Lock()
 			total := total
