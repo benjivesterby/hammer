@@ -95,7 +95,6 @@ func main() {
 		}(i, file != nil)
 	}
 
-	var f *os.File
 	if file != nil {
 		_, err := os.Stat(*file)
 		if err != nil {
@@ -105,36 +104,37 @@ func main() {
 			}
 		}
 
-		f, err = os.OpenFile(*file, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
+		f, err := os.OpenFile(*file, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 		if err != nil {
 			fmt.Printf("error writing to file: %s\n", err.Error())
 		}
 
-		defer func() {
-			_ = f.Close()
-		}()
-	}
+		go func(out <-chan stat) {
+			defer func() {
+				_ = f.Close()
+			}()
 
-	go func(out <-chan stat) {
-		for {
+			for {
 
-			select {
-			case <-ctx.Done():
-				return
-			case data, ok := <-out:
-				if !ok {
+				select {
+				case <-ctx.Done():
 					return
-				}
+				case data, ok := <-out:
+					if !ok {
+						return
+					}
 
-				line := fmt.Sprintln(data.String())
-				_, err := f.WriteString(line)
-				if err != nil {
-					fmt.Printf("error writing to file: %s\n", err.Error())
+					line := fmt.Sprintln(data.String())
+					_, err := f.WriteString(line)
+					if err != nil {
+						fmt.Printf("error writing to file: %s\n", err.Error())
+					}
 				}
 			}
-		}
 
-	}(out)
+		}(out)
+
+	}
 
 	var avg int
 	for {
