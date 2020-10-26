@@ -48,8 +48,10 @@ func main() {
 	ctx := initContext()
 
 	var out chan stat
-	if file != nil {
+	var foutput bool
+	if *file != "" {
 		out = make(chan stat)
+		foutput = true
 	}
 
 	var total time.Duration
@@ -78,7 +80,7 @@ func main() {
 					req = count
 					mu.Unlock()
 
-					if file != nil {
+					if output {
 						select {
 						case <-ctx.Done():
 							return
@@ -92,10 +94,10 @@ func main() {
 					}
 				}
 			}
-		}(i, file != nil)
+		}(i, foutput)
 	}
 
-	if file != nil {
+	if foutput {
 		_, err := os.Stat(*file)
 		if err != nil {
 			_, err = os.Create(*file)
