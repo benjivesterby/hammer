@@ -194,7 +194,7 @@ func initContext() context.Context {
 		case <-ctx.Done():
 			return
 		case <-sigs:
-			fmt.Println("exiting syncer")
+			fmt.Println("exiting")
 			os.Exit(1)
 		}
 	}()
