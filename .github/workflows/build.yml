@@ -5,6 +5,7 @@ on: [push, pull_request]
 
 jobs:
   build:
+    name: "Build"
     strategy:
       matrix:
         go-version: [1.15.x, 1.16.x]
@@ -12,7 +13,6 @@ jobs:
       fail-fast: true
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v2.3.4
       - name: Install Go
         uses: actions/setup-go@v2
         with:
@@ -22,14 +22,18 @@ jobs:
       - name: Build
         run: go build ./...
   test:
+    name: "Unit Tests"
+    needs: [build]
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest, windows-latest]
       fail-fast: true
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v2.3.4
-      - uses: actions/setup-go@v2
+      - name: Checkout code
+        uses: actions/checkout@v2.3.4
+      - name: Install Go
+        uses: actions/setup-go@v2
         with:
           go-version: 1.16.x
       - name: Test
@@ -39,12 +43,3 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: ./coverage.txt
-  release:
-    name: "Tagged Release"
-    runs-on: "ubuntu-latest"
-    steps:
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          prerelease: false
