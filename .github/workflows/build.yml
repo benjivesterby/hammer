@@ -40,6 +40,8 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           file: ./coverage.txt
   release:
+    name: "Tagged Release"
+    runs-on: "ubuntu-latest"
     steps:
       - uses: "marvinpinto/action-automatic-releases@latest"
         if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
