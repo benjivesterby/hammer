@@ -1,3 +1,3 @@
-module benjiv.com/hammer
+module go.benjiv.com/hammer
 
 go 1.16
