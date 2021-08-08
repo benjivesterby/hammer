@@ -12,6 +12,11 @@ import (
 	"time"
 )
 
+const (
+	DEFAULTPARALLEL      = 50
+	DEFAULTUPDATESECONDS = 5
+)
+
 func main() {
 	path := flag.String(
 		"path",
@@ -27,7 +32,7 @@ func main() {
 
 	p := flag.Int(
 		"p",
-		50,
+		DEFAULTPARALLEL,
 		"number of parallel requests",
 	)
 
@@ -60,14 +65,13 @@ func main() {
 
 	// Create pool
 	for i := 0; i < *p; i++ {
-
 		go func(worker int, output bool) {
 			for {
 				select {
 				case <-ctx.Done():
 					return
 				case <-time.Tick(*delay):
-					delta, ok := request(*method, *path)
+					delta, ok := request(ctx, *method, *path)
 					if !ok {
 						time.Sleep(*delay)
 						continue
@@ -117,7 +121,6 @@ func main() {
 			}()
 
 			for {
-
 				select {
 				case <-ctx.Done():
 					return
@@ -133,9 +136,7 @@ func main() {
 					}
 				}
 			}
-
 		}(out)
-
 	}
 
 	var avg int
@@ -143,7 +144,7 @@ func main() {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.Tick(time.Second * 5):
+		case <-time.Tick(time.Second * DEFAULTUPDATESECONDS):
 			mu.Lock()
 			total := total
 			count := count
@@ -158,9 +159,9 @@ func main() {
 	}
 }
 
-func request(method, path string) (time.Duration, bool) {
+func request(ctx context.Context, method, path string) (time.Duration, bool) {
 	client := &http.Client{}
-	req, err := http.NewRequest(method, path, nil)
+	req, err := http.NewRequestWithContext(ctx, method, path, nil)
 	if err != nil {
 		return time.Duration(0), false
 	}
