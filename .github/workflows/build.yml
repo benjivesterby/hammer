@@ -41,8 +41,8 @@ jobs:
           file: ./coverage.txt
   release:
     steps:
-      - if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
       - uses: "marvinpinto/action-automatic-releases@latest"
+        if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: false
