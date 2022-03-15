@@ -66,11 +66,12 @@ func main() {
 	// Create pool
 	for i := 0; i < *p; i++ {
 		go func(worker int, output bool) {
+			ticker := time.NewTicker(*delay)
 			for {
 				select {
 				case <-ctx.Done():
 					return
-				case <-time.Tick(*delay):
+				case <-ticker.C:
 					delta, ok := request(ctx, *method, *path)
 					if !ok {
 						time.Sleep(*delay)
@@ -140,11 +141,12 @@ func main() {
 	}
 
 	var avg int
+	ticker := time.NewTicker(time.Second * DEFAULTUPDATESECONDS)
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.Tick(time.Second * DEFAULTUPDATESECONDS):
+		case <-ticker.C:
 			mu.Lock()
 			total := total
 			count := count
